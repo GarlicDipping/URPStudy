@@ -1,4 +1,4 @@
-Shader "CustomURP/Unlit/Unlit"
+Shader "CustomURP/Unlit/02_Unlit"
 {
     Properties
     {
@@ -126,8 +126,69 @@ Shader "CustomURP/Unlit/Unlit"
             #pragma vertex ShadowPassVertex
             #pragma fragment ShadowPassFragment
 
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
+
+            //SRP 배칭을 위해!
+            CBUFFER_START(UnityPerMaterial)
+            CBUFFER_END
+
+            struct VertexInput
+            {
+                float4 vertex : POSITION;
+                float4 normal : NORMAL;                
+            };
+
+            struct VertexOutput
+            {
+                float4 vertex : SV_POSITION;
+            };
+
+            VertexOutput ShadowPassVertex(VertexInput v)
+            {
+                VertexOutput o;
+                float3 positionWS = TransformObjectToWorld(v.vertex.xyz);
+                float3 normalWS = TransformObjectToWorldNormal(v.normal.xyz);
+                float4 positionCS = TransformWorldToHClip(ApplyShadowBias(positionWS, normalWS, _MainLightPosition.xyz));                
+                o.vertex = positionCS;
+                return o;
+            }
+
+            half4 ShadowPassFragment(VertexOutput i) : SV_TARGET
+            {
+                return 0;
+            }
+            
+            ENDHLSL
+        }
+        
+        Pass
+        {
+            Name "DepthOnly"
+            Tags{"LightMode" = "DepthOnly"}
+
+            ZWrite On
+            ColorMask 0
+            Cull[_Cull]
+
+            HLSLPROGRAM
+            #pragma exclude_renderers gles gles3 glcore
+            #pragma target 4.5
+
+            #pragma vertex DepthOnlyVertex
+            #pragma fragment DepthOnlyFragment
+
+            // -------------------------------------
+            // Material Keywords
+            #pragma shader_feature_local_fragment _ALPHATEST_ON
+            #pragma shader_feature_local_fragment _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+
+            //--------------------------------------
+            // GPU Instancing
+            #pragma multi_compile_instancing
+            #pragma multi_compile _ DOTS_INSTANCING_ON
+
             #include "Packages/com.unity.render-pipelines.universal/Shaders/LitInput.hlsl"
-            #include "Packages/com.unity.render-pipelines.universal/Shaders/ShadowCasterPass.hlsl"
+            #include "Packages/com.unity.render-pipelines.universal/Shaders/DepthOnlyPass.hlsl"
             ENDHLSL
         }
     }
